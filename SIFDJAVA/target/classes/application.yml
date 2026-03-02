@@ -1,0 +1,37 @@
+#spring.application.name=SIFDJAVA
+server:
+  port: 8080
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # ?????? sifd_db????????????????????
+    url: jdbc:mysql://localhost:3306/sifd_db?serverTimezone=GMT%2B8
+    username: root
+    password: 1234
+
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 100MB
+
+# ?????
+sifd:
+  upload-path: E:/homework/  # <--- ??????????Mac/Linux ?? /tmp/sifd_uploads/
+  ai-service-url: http://localhost:5000/predict
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    map-underscore-to-camel-case: true
+
+pagehelper:
+  reasonable: true
+  helper-dialect: mysql
+  
+aliyun:
+  oss:
+    endpoint: https://oss-cn-beijing.aliyuncs.com
+    bucketName: java422-web-ai
+
+
