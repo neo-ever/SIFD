@@ -35,10 +35,19 @@
       - 密码: `1234`
 
 ## 📁 项目结构
-├── SIFDJAVA/ # Java后端项目
-│ └── src/main/java/com/sifd/
-│ └── SifdApplication.java # Spring Boot主类
-├── SIFD_PYTHON/ # Python AI服务
-│ └── sifd_server.py # FastAPI服务主文件
-├── model_seg_final.pt # AI模型权重文件（请放置在此处或自定义路径）
-└── ScientificForgeryDetection.html # 前端主界面
+```
+ScientificForgeryDetection/
+├── SIFDJAVA/                 # Java后端项目
+│   └── src/
+│       └── main/
+│           └── java/
+│               └── com/
+│                   └── sifd/
+│                       └── SifdApplication.java  # Spring Boot主类
+├── SIFD_PYTHON/              # Python AI服务
+│   ├── sifd_server.py        # FastAPI服务主文件
+│   ├── requirements.txt      # Python依赖配置
+│   └── .gitignore           # Git忽略配置
+├── model_seg_final.pt        # AI模型权重文件（请放置在此处或自定义路径）
+└── ScientificForgeryDetection.html  # 前端主界面
+```
