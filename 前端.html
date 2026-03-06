@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>科学图像伪造检测系统 (SIFD)</title>
+    
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css" />
+    <script src="https://unpkg.com/element-plus"></script>
+    <script src="https://unpkg.com/@element-plus/icons-vue"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+    
+    <style>
+        body { margin: 0; font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif; background-color: #f0f2f5; color: #303133; }
+        
+        /* --- 登录页样式 --- */
+        .login-page { height: 100vh; display: flex; justify-content: center; align-items: center; background: linear-gradient(135deg, #e0f7fa 0%, #e1f5fe 100%); position: relative; overflow: hidden; }
+        .bg-circle { position: absolute; border-radius: 50%; background: rgba(255, 255, 255, 0.4); z-index: 0; }
+        .c1 { width: 600px; height: 600px; top: -100px; left: -100px; }
+        .c2 { width: 400px; height: 400px; bottom: -50px; right: -50px; background: rgba(64, 158, 255, 0.1); }
+        .login-container { width: 900px; height: 600px; background: #fff; border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.1); display: flex; overflow: hidden; z-index: 1; position: relative; }
+        
+        /* --- 左侧样式修改 --- */
+        .login-left {
+            flex: 1; 
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            color: #fff; 
+            padding: 40px; 
+            text-align: center; 
+            position: relative;
+            overflow: hidden;
+        }
+
+        .characters-box {
+            position: relative;
+            width: 100%;
+            height: 280px;
+            margin-bottom: 30px;
+        }
+
+  
+
+        /* 通用小人样式 */
+        .character {
+            position: absolute;
+            bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .body-part {
+            position: relative;
+            filter: drop-shadow(0 10px 5px rgba(0,0,0,0.1));
+        }
+
+        /* 脸部容器 - 用于整体转向 */
+        .face-wrap {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center; 
+            align-items: center;
+            transform-origin: center center;
+            transition: transform 0.1s ease-out;
+        }
+
+        /* 眼睛容器 */
+        .eyes {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            position: absolute;
+            width: 100%;
+            z-index: 10;
+            transition: transform 0.2s ease; /* 用于惊讶表情放大 */
+        }
+
+        /* 单个眼睛 */
+        .eye {
+            width: 14px;
+            height: 14px;
+            background: #fff;
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        /* 瞳孔 */
+        .pupil {
+            width: 7px;
+            height: 7px;
+            background: #333;
+            border-radius: 50%;
+            position: absolute;
+            transition: transform 0.05s linear;
+        }
+        
+        /* 嘴巴基础 */
+        .mouth {
+            position: absolute;
+            z-index: 10;
+            background: #555;
+            transition: all 0.2s ease;
+        }
+
+        /* --- 定义四个具体的小人 --- */
+
+        /* 1. 紫色小人 (后排左侧) */
+        .char-purple {
+            left: 5%;
+            z-index: 1; /* 最后面 */
+        }
+        .char-purple .body {
+            width: 80px;
+            height: 130px;
+            background-color: #a29bfe; /* 柔和紫 */
+            border-radius: 100px;
+        }
+        /* 表情: 中性 */
+        .char-purple .eyes { top: 10%; gap: 15px; }
+        .char-purple .eye { width: 12px; height: 12px; }
+        .char-purple .pupil { width: 6px; height: 6px; }
+        .char-purple .mouth {
+               width: 20px;           /* 增加宽度 */
+    height: 10px;          /* 增加高度 */
+    background: #555;
+    top: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 0 0 50% 50%; /* 关键：定义下方左右角的弧度 */
+        }
+        /* 惊讶表情 */
+        .char-purple.surprised .eye { transform: scale(1.3); }
+        .char-purple.surprised .mouth {
+            width: 12px; height: 12px; border-radius: 50%; background: #555;
+        }
+
+        /* 2. 黑色小人 (后排中间/右侧) */
+        .char-black {
+            left: 35%;
+            z-index: 2; /* 中间层 */
+        }
+        .char-black .body {
+            width: 100px;
+            height: 150px;
+	    border-radius: 20px 130px 0 0; 
+            background-color: #2d3436; /* 深黑 */
+            border-radius: 12px;
+        }
+        /* 表情: 瞪大眼睛，无嘴 */
+        .char-black .eyes { top: 35%; gap: 15px; }
+        .char-black .eye { width: 18px; height: 18px; background: #fff; }
+        .char-black .pupil { width: 10px; height: 10px; background: #333; }
+        .char-black .mouth { display: none; } /* 默认无嘴 */
+        /* 惊讶表情: 露出嘴巴 */
+        .char-black.surprised .eye { transform: scale(1.2); }
+        .char-black.surprised .mouth {
+            display: block; width: 10px; height: 10px; border-radius: 50%;
+            background: #fff; top: 65%; left: 50%; transform: translateX(-50%);
+        }
+
+        /* 3. 橙色小人 (前排中间) */
+        .char-orange {
+            left: 20%; /* 覆盖一部分黑色小人 */
+            z-index: 10; /* 最前 */
+            bottom: 15px;
+        }
+        .char-orange .body {
+            width: 130px;
+            height: 85px; 
+            background-color: #ff9f43; /* 鲜艳橙 */
+            border-radius: 130px 130px 0 0; 
+            box-shadow: inset -5px -5px 15px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        /* 表情：微笑 */
+        .char-orange .eyes { top: 40%; gap: 18px; }
+        .char-orange .eye { width: 12px; height: 12px; }
+        .char-orange .pupil { width: 6px; height: 6px; }
+        .char-orange .mouth {
+            width: 35px; height: 3px; background: transparent;
+            border: 3px solid #333; border-top: none;
+            border-radius: 0 0 20px 20px; top: 65%; left: 50%;
+            transform: translateX(-50%);
+        }
+        /* 惊讶表情: O型嘴 */
+        .char-orange.surprised .eye { transform: scale(1.2); }
+        .char-orange.surprised .mouth {
+            width: 15px; height: 15px; border-radius: 50%; background: #333;
+            border: none; border-top: none;
+        }
+
+        /* 4. 黄色小人 (右侧) */
+        .char-yellow {
+            right: 5%;
+            z-index: 3; /* 中间偏后 */
+        }
+        .char-yellow .body {
+            width: 80px;
+            height: 110px;
+            background-color: #ffeaa7; /* 柠檬黄 */
+            border-radius: 15px;
+            position: relative;
+        }
+        /* 表情：点状眼 + 横线嘴 */
+        .char-yellow .eyes { top: 35%; gap: 25px; }
+        .char-yellow .eye { background: transparent; box-shadow: none; width: 8px; height: 8px; }
+        .char-yellow .pupil { width: 8px; height: 8px; background: #333; }
+        .char-yellow .mouth {
+            width: 25px; height: 3px; background: #333;
+            border-radius: 2px; top: 60%; left: 50%; transform: translateX(-50%);
+        }
+        /* 惊讶表情 */
+        .char-yellow.surprised .eye { transform: scale(1.5); }
+        .char-yellow.surprised .mouth {
+            width: 20px; height: 3px; /* 惊讶时嘴巴稍微拉长或变化 */
+            background: #333;
+        }
+
+        /* 底部文字样式 */
+        .brand-text { z-index: 10; }
+        .brand-text h1 { font-size: 28px; font-weight: bold; color: #2d3436; margin: 0; }
+        .brand-text p { font-size: 14px; color: #636e72; margin-top: 10px; }
+
+        /* 登录框右侧保持不变 */
+        .login-right { width: 420px; padding: 40px; display: flex; flex-direction: column; justify-content: center; }
+        .qq-input .el-input__wrapper { background-color: #f5f7fa; border-radius: 20px; height: 45px; }
+        .login-btn { width: 100%; height: 45px; border-radius: 22.5px; background: linear-gradient(90deg, #00C6FB 0%, #005BEA 100%); border: none; color: #fff; font-size: 16px; margin-top: 15px; cursor: pointer; transition: 0.3s; }
+        .captcha-img { height: 45px; cursor: pointer; border-radius: 8px; border: 1px solid #dcdfe6; }
+
+        /* --- 后台界面样式 (保持原样) --- */
+        .layout-container { height: 100vh; }
+        .aside-menu { background-color: #001529; color: #fff; }
+        .logo-area { height: 32px; line-height: 32px; text-align: center; font-size: 10px; font-weight: 300; background-color: #002140; color: #fff; }
+        .header-area { background: #fff; height: 64px; border-bottom: 1px solid #e6e6e6; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; }
+        .main-content { padding: 24px; background-color: #f0f2f5; height: calc(100vh - 64px); overflow-y: auto; }
+        .main-card { margin-bottom: 24px; border: none; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+        .heatmap-container { position: relative; width: 100%; background: #f0f2f5; border-radius: 8px; overflow: hidden; display: flex; justify-content: center; }
+        .base-image { max-width: 100%; display: block; }
+        .overlay-heatmap { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div v-if="!isLoggedIn" class="login-page">
+            <div class="bg-circle c1"></div>
+            <div class="bg-circle c2"></div>
+            <div class="login-container">
+                <!-- 修改后的左侧区域 -->
+                <div class="login-left" ref="loginLeftContainer">
+                    <div class="characters-box">
+                        
+                        <!-- 指示光标 -->
+                        <div class="cursor-pointer"></div>
+
+                        <!-- 小人1：紫色矩形 (后排左侧) -->
+                        <div class="character char-purple" ref="charPurple">
+                            <div class="body-part body">
+                                <div class="face-wrap">
+                                    <div class="eyes">
+                                        <div class="eye"><div class="pupil"></div></div>
+                                        <div class="eye"><div class="pupil"></div></div>
+                                    </div>
+                                    <div class="mouth"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 小人2：黑色矩形 (后排中间) -->
+                        <div class="character char-black" ref="charBlack">
+                            <div class="body-part body">
+                                <div class="face-wrap">
+                                    <div class="eyes">
+                                        <div class="eye"><div class="pupil"></div></div>
+                                        <div class="eye"><div class="pupil"></div></div>
+                                    </div>
+                                    <div class="mouth"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 小人3：橙色半圆 (前排) -->
+                        <div class="character char-orange" ref="charOrange">
+                            <div class="body-part body">
+                                <div class="face-wrap">
+                                    <div class="eyes">
+                                        <div class="eye"><div class="pupil"></div></div>
+                                        <div class="eye"><div class="pupil"></div></div>
+                                    </div>
+                                    <div class="mouth"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 小人4：黄色圆角矩形 (右侧) -->
+                        <div class="character char-yellow" ref="charYellow">
+                            <div class="body-part body">
+                                <div class="face-wrap">
+                                    <div class="eyes">
+                                        <div class="eye"><div class="pupil"></div></div>
+                                        <div class="eye"><div class="pupil"></div></div>
+                                    </div>
+                                    <div class="mouth"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 底部文字 -->
+                    <div class="brand-text">
+                        <h1>科学图像伪造检测系统</h1>
+                        <p>Scientific Image Forgery Detection</p>
+                        <p style="opacity: 0.7; font-size: 12px;">基于视觉大模型 · 守护科研诚信</p>
+                    </div>
+                </div>
+
+                <div class="login-right">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <svg width="70" height="70" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M50,15 L15,30 L15,55 C15,70 25,85 50,85 C75,85 85,70 85,55 L85,30 L50,15 Z" fill="#005BEA"/>
+                                <line x1="60" y1="60" x2="70" y2="70" stroke="white" stroke-width="5" stroke-linecap="round"/>
+                                <circle cx="55" cy="55" r="10" fill="none" stroke="white" stroke-width="5"/>
+                                <text x="50" y="40" text-anchor="middle" fill="white" font-size="8" font-weight="bold">SIFD</text>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div style="font-size: 20px; font-weight: bold; text-align: center; margin-bottom: 20px;">
+                        <span v-if="authMode === 'login'">{{ loginMethod === 'password' ? '账号登录' : '短信登录' }}</span>
+                        <span v-else-if="authMode === 'register'">新用户注册</span>
+                        <span v-else>找回密码</span>
+                    </div>
+
+                    <el-form :model="authForm" ref="formRef">
+                        <el-form-item v-if="authMode === 'register'"><el-input v-model="authForm.username" placeholder="用户名" class="qq-input"><template #prefix><el-icon><User /></el-icon></template></el-input></el-form-item>
+                        <el-form-item><el-input v-model="authForm.account" placeholder="邮箱 / 手机号" class="qq-input"><template #prefix><el-icon><Postcard /></el-icon></template></el-input></el-form-item>
+                        <el-form-item v-if="authMode !== 'forgot' || forgotStep === 2"><el-input v-model="authForm.password" type="password" placeholder="密码" class="qq-input" show-password><template #prefix><el-icon><Lock /></el-icon></template></el-input></el-form-item>
+
+                        <el-form-item>
+                            <div style="display: flex; gap: 10px; width: 100%;">
+                                <el-input v-model="authForm.captcha" placeholder="验证码" class="qq-input" style="flex: 1;"><template #prefix><el-icon><Key /></el-icon></template></el-input>
+                                <img v-if="captchaImg" :src="captchaImg" @click="getNewCaptcha" class="captcha-img" title="点击刷新" />
+                            </div>
+                        </el-form-item>
+                        <el-form-item v-if="authMode === 'register' || loginMethod === 'sms' || authMode === 'forgot'">
+                            <div style="display: flex; gap: 10px; width: 100%;">
+                                <el-input v-model="authForm.smsCode" placeholder="确认码" class="qq-input" style="flex: 1;"><template #prefix><el-icon><Check /></el-icon></template></el-input>
+                                <el-button @click="sendDynamicCode" :disabled="smsTimer > 0" style="border-radius: 20px;">{{ smsTimer > 0 ? `${smsTimer}s` : '发送' }}</el-button>
+                            </div>
+                        </el-form-item>
+
+                        <div style="display: flex; justify-content: space-between; font-size: 13px;">
+                            <template v-if="authMode === 'login'">
+                                <a href="javascript:;" @click="loginMethod = loginMethod === 'password' ? 'sms' : 'password'" style="color: #409EFF; text-decoration: none;">{{ loginMethod === 'password' ? '短信登录' : '密码登录' }}</a>
+                                <a href="javascript:;" @click="switchMode('forgot')" style="color: #999; text-decoration: none;">忘记密码？</a>
+                            </template>
+                            <template v-else>
+                                <el-checkbox v-if="authMode === 'register'" v-model="authForm.agree" label="同意协议" size="small"></el-checkbox>
+                                <a href="javascript:;" @click="switchMode('login')" style="color: #409EFF; text-decoration: none;">返回登录</a>
+                            </template>
+                        </div>
+                        <button type="button" class="login-btn" @click="handleAuth" :disabled="loading">{{ loading ? '登录中...' : '确 定' }}</button>
+                    </el-form>
+                    <div v-if="authMode !== 'register'" style="margin-top: 15px; text-align: center;"><a href="javascript:;" @click="switchMode('register')" style="color: #005BEA; text-decoration: none; font-size: 14px;">立即加入 SIFD</a></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 后台管理界面保持不变 -->
+        <el-container v-else class="layout-container">
+            <el-aside width="240px" class="aside-menu">
+                <div class="logo-area">SIFD FORENSICS</div>
+                <el-menu background-color="#001529" text-color="#fff" :default-active="activeMenu" @select="handleMenuSelect">
+                    <el-menu-item index="dashboard"><el-icon><Odometer /></el-icon><span>统计看板</span></el-menu-item>
+                    <el-menu-item index="detect"><el-icon><Aim /></el-icon><span>在线检测中心</span></el-menu-item>
+                    <el-menu-item index="history"><el-icon><Tickets /></el-icon><span>检测历史档案</span></el-menu-item>
+                    <el-menu-item index="dataset"><el-icon><Folder /></el-icon><span>数据集概览</span></el-menu-item>
+                    <el-menu-item index="settings"><el-icon><Setting /></el-icon><span>系统设置</span></el-menu-item>
+                </el-menu>
+            </el-aside>
+            <el-container>
+                <el-header class="header-area">
+                    <div style="font-size: 18px; font-weight: bold;">{{ menuTitleMap[activeMenu] }}</div>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <el-tag type="success" size="small">RTX 3090 Online</el-tag>
+                        <el-dropdown @command="c => c === 'out' && handleLogout()">
+                            <span style="cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                                <el-avatar :size="32" src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png"></el-avatar>
+                                <span>{{ userInfo.username }}</span>
+                            </span>
+                            <template #dropdown><el-dropdown-menu><el-dropdown-item command="out">退出登录</el-dropdown-item></el-dropdown-menu></template>
+                        </el-dropdown>
+                    </div>
+                </el-header>
+                <el-main class="main-content">
+                    <div v-if="activeMenu === 'dashboard'">
+                        <el-row :gutter="20">
+                            <el-col :span="6" v-for="s in summaryStats" :key="s.label">
+                                <el-card class="main-card">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div><div style="color: #999; font-size: 14px;">{{ s.label }}</div><div style="font-size: 24px; font-weight: bold;">{{ s.value }}</div></div>
+                                        <el-icon :size="40" :color="s.color"><component :is="s.icon"/></el-icon>
+                                    </div>
+                                </el-card>
+                            </el-col>
+                        </el-row>
+                        <el-card header="近7日检测并发趋势"><div id="trendChart" style="height: 350px;"></div></el-card>
+                    </div>
+
+                    <div v-if="activeMenu === 'detect'">
+                        <el-card v-if="!detectionResult" header="上传图像">
+                            <el-upload drag action="#" :auto-upload="false" :on-change="onFileChange" v-model:file-list="fileList">
+                                <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+                                <div class="el-upload__text">拖拽文件到此处或 <em>点击上传</em></div>
+                            </el-upload>
+                            <div style="text-align: center; margin-top: 20px;"><el-button type="primary" size="large" @click="startDetection" :loading="isProcessing">开始深度检测</el-button></div>
+                        </el-card>
+                        <el-row v-else :gutter="20">
+                            <el-col :span="16">
+                                <el-card header="伪造定位比对">
+                                    <div class="heatmap-container">
+                                        <img :src="fileUrl" class="base-image" />
+                                        <img :src="detectionResult.heatmap" class="overlay-heatmap" :style="{ opacity: overlayOpacity }" />
+                                    </div>
+                                    <div style="margin-top: 15px; display: flex; align-items: center; gap: 20px;">
+                                        <span style="font-size: 13px; color: #666;">热力图透明度:</span>
+                                        <el-slider v-model="overlayOpacity" :min="0" :max="1" :step="0.01" style="flex: 1;"></el-slider>
+                                    </div>
+                                </el-card>
+                            </el-col>
+                            <el-col :span="8">
+                                <el-card header="诊断报告">
+                                    <div v-if="detectionResult && detectionResult.type">
+                                        <el-result :icon="detectionResult.type.includes('正常') ? 'success' : 'warning'" :title="detectionResult.type" :sub-title="`异常评分: ${detectionResult.score}`"></el-result>
+                                    </div>
+                                    <div v-else style="padding: 40px 0; text-align: center; color: #909399;">
+                                        <el-icon size="30"><data-line /></el-icon>
+                                        <div style="margin-top: 10px;">等待检测结果...</div>
+                                    </div>
+                                    <div v-if="detectionResult" style="margin-top: 20px; padding: 15px; background: #f5f7fa; border-radius: 8px;">
+                                        <div style="font-weight: bold; margin-bottom: 10px; font-size: 14px;">核心指标数据：</div>
+                                        <div style="font-size: 13px; line-height: 2; color: #606266;">
+                                            <div style="display: flex; justify-content: space-between;"><span>任务 ID:</span> <span style="font-family: monospace;">{{ detectionResult.taskId }}</span></div>
+                                            <div style="display: flex; justify-content: space-between;"><span>异常区域面积:</span> <span style="font-weight: bold;">{{ detectionResult.debug?.area || 0 }} px</span></div>
+                                            <div style="display: flex; justify-content: space-between;"><span>区域平均置信度:</span> <span>{{ detectionResult.debug?.mean?.toFixed(4) || 0 }}</span></div>
+                                            <div style="display: flex; justify-content: space-between;"><span>判定阈值:</span> <span>> 50</span></div>
+                                        </div>
+                                    </div>
+                                </el-card>
+                            </el-col>
+                        </el-row>
+                    </div>
+
+                    <div v-if="activeMenu === 'history'">
+                        <el-card header="历史档案管理">
+                            <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+                                <el-input v-model="searchKeyword" placeholder="输入文件名搜索..." style="width: 300px;" clearable @clear="fetchHistoryData" @keyup.enter="fetchHistoryData">
+                                    <template #append><el-button @click="fetchHistoryData"><el-icon><Search /></el-icon></el-button></template>
+                                </el-input>
+                                <el-button type="primary" @click="fetchHistoryData" plain>刷新列表</el-button>
+                            </div>
+                            <el-table :data="historyList" border stripe style="width: 100%" v-loading="loading">
+                                <el-table-column label="ID" prop="id" width="60" align="center"></el-table-column>
+                                <el-table-column label="图像快照" width="100" align="center">
+                                    <template #default="scope">
+                                        <el-image style="width: 60px; height: 60px; border-radius: 4px;" :src="scope.row.fileUrl" :preview-src-list="[scope.row.fileUrl]" preview-teleported fit="cover">
+                                            <template #error><div style="font-size: 12px; color: #ccc; line-height: 60px;">已失效</div></template>
+                                        </el-image>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="filename" label="原始文件名" min-width="150" show-overflow-tooltip></el-table-column>
+                                <el-table-column prop="type" label="检测结论" width="120" align="center">
+                                    <template #default="scope">
+                                        <el-tag :type="scope.row.type.includes('正常') ? 'success' : 'danger'" effect="dark">{{ scope.row.type.includes('正常') ? '正常' : '异常' }}</el-tag>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="score" label="置信度" width="100" align="center">
+                                    <template #default="scope"><span :style="{color: scope.row.score > 80 ? '#F56C6C' : '#67C23A', fontWeight: 'bold'}">{{ scope.row.score }}%</span></template>
+                                </el-table-column>
+                                <el-table-column prop="createTime" label="检测时间" width="170" align="center">
+                                    <template #default="scope">{{ new Date(scope.row.createTime).toLocaleString() }}</template>
+                                </el-table-column>
+                                <el-table-column label="操作" width="100" align="center">
+                                    <template #default="scope">
+                                        <el-popconfirm title="确定删除这条记录吗？" @confirm="handleDelete(scope.row.id)">
+                                            <template #reference><el-button type="danger" size="small" icon="Delete" circle></el-button></template>
+                                        </el-popconfirm>
+                                    </template>
+                                </el-table-column>
+                            </el-table>
+                            <div style="margin-top: 20px; text-align: right;">
+                                <el-pagination background layout="total, prev, pager, next" :total="totalCount" :page-size="pagination.pageSize" @current-change="handlePageChange"></el-pagination>
+                            </div>
+                        </el-card>
+                    </div>
+
+                    <div v-if="activeMenu === 'dataset'">
+                        <el-row :gutter="20">
+                            <el-col :span="12"><el-card header="分类分布">
+                                <el-table :data="datasetStats" border stripe style="width: 100%">
+                                    <el-table-column prop="category" label="检测结论类型" width="220">
+                                        <template #default="scope">
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <el-icon v-if="scope.row.category.includes('正常')" color="#67C23A"><CircleCheckFilled /></el-icon>
+                                                <el-icon v-else color="#F56C6C"><WarningFilled /></el-icon>
+                                                <span>{{ scope.row.category }}</span>
+                                            </div>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column prop="count" label="实测样本数" align="center" sortable></el-table-column>
+                                    <el-table-column prop="ratio" label="系统占比" align="center">
+                                        <template #default="scope">
+                                            <el-progress :percentage="parseFloat(scope.row.ratio)" :status="scope.row.category.includes('正常') ? 'success' : 'exception'" :stroke-width="15" text-inside />
+                                        </template>
+                                    </el-table-column>
+                                </el-table>
+                            </el-card></el-col>
+                            <el-col :span="12"><el-card header="精度雷达图"><div id="radarChart" style="height:350px;"></div></el-card></el-col>
+                        </el-row>
+                    </div>
+
+                    <div v-if="activeMenu === 'settings'">
+                        <el-card header="配置中心" style="max-width: 600px; margin: 0 auto;">
+                            <el-form label-width="140px">
+                                <el-form-item label="平均置信度阈值">
+                                    <div style="display:flex; width:100%; gap:10px;">
+                                        <el-slider v-model="settings.threshold" :step="0.01" :min="0.1" :max="0.5" style="flex:1"></el-slider>
+                                        <span>{{ settings.threshold }}</span>
+                                    </div>
+                                    <div style="font-size:12px; color:#999; line-height:1.2;">值越低越敏感，但误报率可能升高（建议 0.22）</div>
+                                </el-form-item>
+                                <el-form-item label="最小篡改面积">
+                                    <el-input-number v-model="settings.area_thr" :min="10" :max="1000" step="10"></el-input-number>
+                                    <span style="margin-left:10px;">像素</span>
+                                </el-form-item>
+                                <el-form-item label="推理模式">
+                                    <el-radio-group v-model="settings.mode">
+                                        <el-radio label="speed">极速模式</el-radio>
+                                        <el-radio label="balance">高精模式</el-radio>
+                                    </el-radio-group>
+                                </el-form-item>
+                                <el-form-item>
+                                    <el-button type="primary" @click="saveSettings">保存并应用</el-button>
+                                </el-form-item>
+                            </el-form>
+                        </el-card>
+                    </div>
+                </el-main>
+            </el-container>
+        </el-container>
+    </div>
+
+    <script>
+    const { createApp, ref, reactive, onMounted, nextTick, onBeforeUnmount } = Vue;
+    const API_BASE = "http://localhost:8080/api";
+
+    const app = createApp({
+        setup() {
+            // --- 1. 基础状态 ---
+            const isLoggedIn = ref(false);
+            const authMode = ref('login');
+            const loginMethod = ref('password');
+            const forgotStep = ref(1);
+            const loading = ref(false);
+            const captchaImg = ref('');
+            const captchaKey = ref('');
+            const userInfo = ref({ username: '' });
+            const overlayOpacity = ref(0.6);
+            
+            const loginLeftContainer = ref(null);
+            const charPurple = ref(null);
+            const charBlack = ref(null);
+            const charOrange = ref(null);
+            const charYellow = ref(null);
+
+            // --- 2. 菜单与看板 ---
+            const activeMenu = ref('dashboard');
+            const menuTitleMap = { dashboard: '统计看板', detect: '在线检测中心', history: '检测历史档案', dataset: '数据集概览', settings: '系统设置' };
+            
+            const summaryStats = ref([
+                { label: '今日检测', value: '0', icon: 'DataLine', color: '#1890ff', key: 'todayCount' },
+                { label: '预警次数', value: '0', icon: 'Warning', color: '#fa8c16', key: 'alertCount' },
+                { label: 'GPU负载', value: '0%', icon: 'Cpu', color: '#52c41a', key: 'gpuLoad' },
+                { label: '模型版本', value: 'v2.1', icon: 'Connection', color: '#722ed1', key: 'modelVersion' }
+            ]);
+
+            // --- 3. 业务数据 ---
+            const authForm = reactive({ username: '', account: '', password: '', captcha: '', agree: false });
+            const historyList = ref([]);
+            const totalCount = ref(0); 
+            const searchKeyword = ref(''); 
+            const pagination = reactive({ currentPage: 1, pageSize: 10 }); 
+            
+            const datasetStats = ref([{ category: 'Western Blot', count: '4,500' }, { category: 'Microscopy', count: '2,800' }]);
+            const settings = reactive({ threshold: 0.22, area_thr: 200, mode: 'balance' });
+
+            // --- 4. 检测状态 ---
+            const isProcessing = ref(false);
+            const detectionResult = ref(null);
+            const fileUrl = ref('');
+            const fileList = ref([]);
+
+            // --- 5. 方法集 ---
+
+            // 核心交互：脸部转向 + 瞳孔跟随 + 表情变化
+            const handleEyeMove = (e) => {
+                if (!loginLeftContainer.value) return;
+                
+                // 定义需要处理的字符列表
+                const characters = [
+                    { el: charPurple.value, defaultClass: 'char-purple' },
+                    { el: charBlack.value, defaultClass: 'char-black' },
+                    { el: charOrange.value, defaultClass: 'char-orange' },
+                    { el: charYellow.value, defaultClass: 'char-yellow' }
+                ];
+
+                characters.forEach(char => {
+                    if (!char.el) return;
+
+                    // 1. 计算距离，控制表情
+                    const rect = char.el.getBoundingClientRect();
+                    const centerX = rect.left + rect.width / 2;
+                    const centerY = rect.top + rect.height / 2;
+                    const distance = Math.sqrt(Math.pow(e.clientX - centerX, 2) + Math.pow(e.clientY - centerY, 2));
+
+                    // 如果鼠标靠近（距离小于200px），添加惊讶表情
+                    if (distance < 200) {
+                        char.el.classList.add('surprised');
+                    } else {
+                        char.el.classList.remove('surprised');
+                    }
+
+                    // 2. 处理脸部转向
+                    const face = char.el.querySelector('.face-wrap');
+                    if (face) {
+                        // 使用整个屏幕区域计算角度，让转向更自然
+                        const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
+                        // 限制角度范围，避免表情翻转过度
+                        const limitAngle = Math.max(-20, Math.min(20, angle));
+                        face.style.transform = `rotate(${limitAngle}deg)`;
+                    }
+
+                    // 3. 处理瞳孔移动
+                    const pupils = char.el.querySelectorAll('.pupil');
+                    pupils.forEach(pupil => {
+                        const eye = pupil.parentElement;
+                        const eyeRect = eye.getBoundingClientRect();
+                        
+                        const eyeCenterX = eyeRect.left + eyeRect.width / 2;
+                        const eyeCenterY = eyeRect.top + eyeRect.height / 2;
+                        
+                        const angle = Math.atan2(e.clientY - eyeCenterY, e.clientX - eyeCenterX);
+                        const maxDist = 3; 
+                        
+                        const x = Math.cos(angle) * maxDist;
+                        const y = Math.sin(angle) * maxDist;
+                        
+                        pupil.style.transform = `translate(${x}px, ${y}px)`;
+                    });
+                });
+            };
+
+            const fetchSettings = () => {
+                axios.get(`${API_BASE}/config/list`).then(res => {
+                    if (res.data.code === 200) {
+                        const data = res.data.data;
+                        if(data.threshold) settings.threshold = parseFloat(data.threshold);
+                        if(data.area_thr) settings.area_thr = parseInt(data.area_thr);
+                        if(data.mode) settings.mode = data.mode;
+                    }
+                });
+            };
+
+            const fetchRealStats = () => {
+                axios.get(`${API_BASE}/stats/dashboard`).then(res => {
+                    if (res.data.code === 200) {
+                        const data = res.data.data;
+                        summaryStats.value.forEach(item => {
+                            if (data[item.key] !== undefined) item.value = data[item.key];
+                        });
+                        nextTick(() => initCharts(data.trendDates, data.trendData));
+                    }
+                }).catch(err => console.error("趋势数据同步失败"));
+            };
+
+            const fetchHistoryData = () => {
+                loading.value = true;
+                axios.get(`${API_BASE}/history/list`, {
+                    params: { 
+                        current: pagination.currentPage, 
+                        size: pagination.pageSize,
+                        keyword: searchKeyword.value
+                    }
+                }).then(res => {
+                    if (res.data.code === 200) {
+                        historyList.value = res.data.data.list;
+                        totalCount.value = res.data.data.total;
+                    }
+                }).finally(() => loading.value = false);
+            };
+
+            const handlePageChange = (val) => {
+                pagination.currentPage = val;
+                fetchHistoryData();
+            };
+            
+            const handleDelete = (id) => {
+                axios.delete(`${API_BASE}/history/delete/${id}`).then(res => {
+                    if (res.data.code === 200) {
+                        ElementPlus.ElMessage.success("删除成功");
+                        fetchHistoryData();
+                        fetchRealStats();
+                    } else {
+                        ElementPlus.ElMessage.error(res.data.message);
+                    }
+                });
+            };
+
+            const onFileChange = (file, files) => {
+                fileList.value = files;
+                fileUrl.value = URL.createObjectURL(file.raw);
+                detectionResult.value = null;
+            };
+
+            const startDetection = async () => {
+                if (fileList.value.length === 0) return ElementPlus.ElMessage.warning("请先上传科研图像");
+                isProcessing.value = true;
+                const formData = new FormData();
+                formData.append('file', fileList.value[0].raw); 
+
+                try {
+                    const res = await axios.post(`${API_BASE}/stats/api/detect`, formData, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    if (res.data.code === 200) {
+                        detectionResult.value = res.data.data;
+                        ElementPlus.ElMessage.success("深度检测分析完成");
+                    } else {
+                        ElementPlus.ElMessage.error(res.data.message || "检测失败");
+                    }
+                } catch (error) {
+                    console.error(error);
+                    ElementPlus.ElMessage.error("后端服务连接失败");
+                } finally {
+                    isProcessing.value = false;
+                }
+            };
+
+            const resetDetection = () => {
+                fileList.value = [];
+                fileUrl.value = '';
+                detectionResult.value = null;
+            };
+
+            const getNewCaptcha = () => {
+                axios.get(`${API_BASE}/auth/captcha`).then(res => {
+                    captchaImg.value = res.data.data.captchaImg;
+                    captchaKey.value = res.data.data.captchaKey;
+                }).catch(() => {});
+            };
+
+            const handleAuth = () => {
+                loading.value = true;
+                const url = authMode.value === 'register' ? '/auth/register' : '/auth/login';
+                axios.post(API_BASE + url, { ...authForm, captchaKey: captchaKey.value }).then(res => {
+                    if (res.data.code === 200) {
+                        if (authMode.value === 'login') {
+                            isLoggedIn.value = true;
+                            userInfo.value = res.data.data.user;
+                            try {
+                                localStorage.setItem("sifd_token", res.data.data.token);
+                                localStorage.setItem("sifd_user", JSON.stringify(res.data.data.user));
+                            } catch(e) {}
+                            
+                            nextTick(() => {
+                                fetchRealStats();
+                                fetchHistoryData();
+                            });
+                        } else {
+                            ElementPlus.ElMessage.success("注册成功，请登录");
+                            switchMode('login');
+                        }
+                    } else {
+                        ElementPlus.ElMessage.error(res.data.message);
+                        getNewCaptcha();
+                    }
+                }).finally(() => loading.value = false);
+            };
+
+            const handleLogout = () => {
+                localStorage.removeItem("sifd_token");
+                localStorage.removeItem("sifd_user");
+                isLoggedIn.value = false;
+                userInfo.value = { username: '' };
+                ElementPlus.ElMessage.success("已安全退出");
+            };
+
+            const initCharts = (dates, values) => {
+                const dom = document.getElementById('trendChart');
+                if (!dom) return;
+                const chart = echarts.getInstanceByDom(dom) || echarts.init(dom);
+                chart.setOption({
+                    tooltip: { trigger: 'axis' },
+                    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+                    xAxis: { type: 'category', data: dates || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] },
+                    yAxis: { type: 'value' },
+                    series: [{
+                        data: values || [0,0,0,0,0,0,0],
+                        type: 'line', smooth: true, color: '#005BEA',
+                        areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{offset: 0, color: 'rgba(0, 91, 234, 0.5)'}, {offset: 1, color: 'rgba(0, 91, 234, 0.0)'}]) }
+                    }]
+                });
+                window.onresize = () => chart.resize();
+            };
+
+            const initRadar = () => {
+                const dom = document.getElementById('radarChart');
+                if(!dom) return;
+                const chart = echarts.init(dom);
+                chart.setOption({
+                    radar: { indicator: [{name:'精度',max:100}, {name:'召回',max:100}, {name:'速度',max:100}, {name:'鲁棒',max:100}] },
+                    series: [{ type: 'radar', data: [{ value: [92, 88, 95, 87] }] }]
+                });
+            };
+
+            const handleMenuSelect = (m) => {
+                activeMenu.value = m;
+                if (m === 'dashboard') nextTick(fetchRealStats);
+                if (m === 'history') fetchHistoryData();
+                if (m === 'dataset') nextTick(fetchDatasetData);
+                if (m === 'settings') fetchSettings(); 
+            };
+
+            const switchMode = (m) => { authMode.value = m; getNewCaptcha(); };
+            const saveSettings = () => {
+                axios.post(`${API_BASE}/config/save`, {
+                    threshold: settings.threshold.toString(),
+                    area_thr: settings.area_thr.toString(),
+                    mode: settings.mode
+                }).then(res => {
+                    if (res.data.code === 200) {
+                        ElementPlus.ElMessage.success("系统配置已更新，下次检测生效");
+                    }
+                });
+            };
+
+            // --- 生命周期钩子 ---
+            onMounted(() => {
+                getNewCaptcha();
+                window.addEventListener('mousemove', handleEyeMove);
+
+                try {
+                    const storedToken = localStorage.getItem("sifd_token");
+                    if (storedToken) {
+                        isLoggedIn.value = true;
+                        const storedUser = localStorage.getItem("sifd_user");
+                        if (storedUser) {
+                            userInfo.value = JSON.parse(storedUser);
+                            nextTick(() => {
+                                fetchRealStats();
+                                fetchHistoryData();
+                            });
+                        }
+                    }
+                } catch(e) { console.log("Auto login skipped"); }
+            });
+
+            onBeforeUnmount(() => {
+                window.removeEventListener('mousemove', handleEyeMove);
+            });
+
+            // --- 6. 最终返回所有变量 ---
+            return {
+                isLoggedIn, authMode, loginMethod, loading, captchaImg, activeMenu, userInfo,
+                authForm, menuTitleMap, summaryStats, datasetStats, settings, 
+                isProcessing, detectionResult, fileUrl, fileList, overlayOpacity,
+                loginLeftContainer, 
+                charPurple, charBlack, charOrange, charYellow,
+                historyList, totalCount, searchKeyword, pagination,
+                getNewCaptcha, switchMode, handleAuth, handleMenuSelect, onFileChange, 
+                startDetection, resetDetection, handlePageChange, saveSettings, handleLogout,
+                fetchHistoryData, handleDelete
+            };
+        }
+    });
+
+    for (const [key, component] of Object.entries(ElementPlusIconsVue)) app.component(key, component);
+    app.use(ElementPlus);
+    app.mount('#app');
+</script>
+</body>
+</html>
